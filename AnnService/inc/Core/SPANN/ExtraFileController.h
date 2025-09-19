@@ -193,22 +193,22 @@ namespace SPTAG::SPANN {
         };
 
         class LRUCache {
-            int capacity;
+            int64_t capacity;
             int limit;
             std::uint64_t size;
             std::list<SizeType> keys;  // Page Address
             std::unordered_map<SizeType, std::pair<std::string, std::list<SizeType>::iterator>> cache;    // Page Address -> Page Address in Cache
             std::shared_timed_mutex mu;
-            int64_t queries;
+            std::atomic<int64_t> queries;
             std::atomic<int64_t> hits;
             FileIO* fileIO;
             std::vector<Helper::AsyncReadRequest> reqs;
             std::vector<Helper::PageBuffer<std::uint8_t>> pageBuffers;
 
         public:
-            LRUCache(int capacity, int limit, FileIO* fileIO) {
+            LRUCache(int64_t capacity, int limit, FileIO* fileIO) {
                 this->capacity = capacity;
-                this->limit = min(capacity, (limit << PageSizeEx));
+                this->limit = std::min(capacity, int64_t(limit << PageSizeEx));
                 this->size = 0;
                 this->queries = 0;
                 this->hits = 0;
@@ -259,7 +259,7 @@ namespace SPTAG::SPANN {
                     get_size = (int)(it->second.first.size());
                 }
                 // Update access order, move the key to the head of the linked list
-                memcpy((char*)value, it->second.first.data(), size);
+                memcpy((char*)value, it->second.first.data(), get_size);
                 hits++;
                 return true;
             }
@@ -276,7 +276,7 @@ namespace SPTAG::SPANN {
                     it->second.second = keys.begin();
 
                     auto delta_size = put_size - it->second.first.size();
-                    while ((capacity - size) < delta_size && (keys.size() > 1)) {
+                    while ((int64_t)(capacity - size) < delta_size && (keys.size() > 1)) {
                         auto last = keys.back();
                         auto lastit = cache.find(last);
                         if (!evict(last, lastit->second.first.data(), lastit->second.first.size(), lastit)) {
@@ -292,7 +292,7 @@ namespace SPTAG::SPANN {
                 if (put_size > limit) {
                     return false;
                 }
-                while (put_size > (capacity - size) && (!keys.empty())) {
+                while (put_size > (int64_t)(capacity - size) && (!keys.empty())) {
                     auto last = keys.back();
                     auto lastit = cache.find(last);
                     if (!evict(last, lastit->second.first.data(), lastit->second.first.size(), lastit)) {
@@ -321,14 +321,15 @@ namespace SPTAG::SPANN {
                 auto it = cache.find(key);
                 if (it == cache.end()) {
                     // SPTAGLIB_LOG(Helper::LogLevel::LL_Info, "LRUCache: merge key not found\n");
-                    std::string valstr;
-                    if (fileIO->Get(key, &valstr, MaxTimeout, &reqs, false) != ErrorCode::Success) {
-                        SPTAGLIB_LOG(Helper::LogLevel::LL_Error, "LRUCache: merge key not found in file\n");
-                        return false;  // If the key does not exist, return false
-                    }
-                    cache.insert({key, {valstr, keys.insert(keys.begin(), key)}});
-                    size += valstr.size();
-                    it = cache.find(key);
+                    // std::string valstr;
+                    // if (fileIO->Get(key, &valstr, MaxTimeout, &reqs, false) != ErrorCode::Success) {
+                    //     SPTAGLIB_LOG(Helper::LogLevel::LL_Error, "LRUCache: merge key not found in file\n");
+                    //     return false;  // If the key does not exist, return false
+                    // }
+                    // cache.insert({key, {valstr, keys.insert(keys.begin(), key)}});
+                    // size += valstr.size();
+                    // it = cache.find(key);
+                    return false;
                 } else {
                     hits++;
                 }
@@ -379,7 +380,7 @@ namespace SPTAG::SPANN {
                 return key % shards;
             }
         public:
-            ShardedLRUCache(int shards, int capacity, int limit, FileIO* fileIO) : shards(shards) {
+            ShardedLRUCache(int shards, int64_t capacity, int limit, FileIO* fileIO) : shards(shards) {
                 caches.resize(shards);
                 for (int i = 0; i < shards; i++) {
                     caches[i] = new LRUCache(capacity / shards, limit, fileIO);
@@ -457,7 +458,7 @@ namespace SPTAG::SPANN {
 
             m_pShardedLRUCache = nullptr;
             if (p_opt.m_cacheSize > 0) {
-                int capacity = p_opt.m_cacheSize << 30;
+                int64_t capacity = (int64_t)p_opt.m_cacheSize << 30;
                 m_pShardedLRUCache = new ShardedLRUCache(p_opt.m_cacheShards, capacity, m_blockLimit, this);
                 SPTAGLIB_LOG(Helper::LogLevel::LL_Info, "FileIO: Using LRU Cache with capacity %d GB, limit %d pages, shards %d\n", p_opt.m_cacheSize, m_blockLimit, p_opt.m_cacheShards);
             }

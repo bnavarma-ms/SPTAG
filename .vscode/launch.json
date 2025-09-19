@@ -1,0 +1,48 @@
+{
+    "version": "2.0.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "",
+            "stopAtEntry": false,
+            "program": "${workspaceFolder}/Debug/SPTAGTest",
+            "args": ["--run_test=SPFreshTest/CacheTest"], //add test filter here
+            "cwd": "${workspaceFolder}/Debug",
+            "environment": [
+                //reference: https://docs.starrocks.io/docs/developers/build-starrocks/handbook/#how-to-run-be-ut-in-command-line
+                {"name":"UDF_RUNTIME_DIR", "value":"${workspaceFolder}"},
+                {"name":"STARROCKS_HOME", "value":"${workspaceFolder}"},
+                {"name":"PYTHON_INSTALL_DIR", "value":"${workspaceFolder}/thirdparty/installed/python"}, // replace thirdparty with your starrocks thirdparty path
+                {"name":"LD_LIBRARY_PATH", "value":"/usr/lib/jvm/java-1.11.0-openjdk-amd64/lib/server:${workspaceFolder}/Debug"}, //set the path to your jdk here
+                {"name":"LD_PRELOAD", "value":"/usr/lib/gcc/x86_64-linux-gnu/11/libasan.so"},
+                {"name":"PCI_ALLOWED", "value":"1462:00:00.0"},
+                {"name":"SPFRESH_SPDK_USE_SSD_IMPL", "value":"1"},
+                {"name":"SPFRESH_SPDK_CONF", "value":"./bdev.json"},
+                {"name":"SPFRESH_SPDK_BDEV", "value":"Nvme0n1"}
+
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            // "miDebuggerPath": "${workspaceFolder}/sudo_gdb.sh",
+            "sourceFileMap": {
+                "/src/AnnService": "/home/avinash/luminousio/SPTAG2/AnnService",
+                "/src/Test": "/home/avinash/luminousio/SPTAG2/Test",
+                "/usr/include/rocksdb": "/home/avinash/luminousio/rocksdb/include/rocksdb",
+            },
+        },
+    ]
+}
